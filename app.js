@@ -155,7 +155,7 @@ const groupName = i => [...frList(i), i.collectionName || ''].filter(Boolean).jo
 function buildGroups(arr) {
   const groups = new Map();
   const add = (key, name, i) => {
-    if (!groups.has(key)) groups.set(key, { name, items: [] });
+    if (!groups.has(key)) groups.set(key, { key, name, items: [] });
     groups.get(key).items.push(i);
   };
   arr.forEach(i => {
@@ -215,8 +215,41 @@ function render() {
   });
 
   list.innerHTML = gl.map(g => g.items.length > 1
-    ? `<div class="grp" style="color:${frColor(g.name)}">${esc(g.name)}</div><div class="grpbody" style="border-left-color:${frColor(g.name, 32)}">${g.items.map(row).join('')}</div>`
+    ? (collapsed.has(g.key) ? groupRow(g)
+      : `<button class="grp" data-g="${esc(g.key)}" style="color:${frColor(g.name)}"><span>${esc(g.name)}</span><span class="cnt">${g.items.length} ▾</span></button><div class="grpbody" style="border-left-color:${frColor(g.name, 32)}">${g.items.map(row).join('')}</div>`)
     : row(g.items[0])).join('');
+}
+
+/* Eingeklappte Reihen (pro Gerät gemerkt) */
+let collapsed = new Set();
+try { collapsed = new Set(JSON.parse(localStorage.getItem('movielist-collapsed') || '[]')); } catch (e) {}
+function toggleGroup(key) {
+  collapsed.has(key) ? collapsed.delete(key) : collapsed.add(key);
+  try { localStorage.setItem('movielist-collapsed', JSON.stringify([...collapsed])); } catch (e) {}
+  render();
+}
+function avgOf(items, u) {
+  const v = items.map(i => i.ratings?.[u]).filter(x => x != null);
+  return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10 : null;
+}
+const fmt = n => n == null ? '–' : String(n).replace('.', ',');
+function groupRow(g) {
+  const m = avgOf(g.items, me), o = avgOf(g.items, other());
+  const years = g.items.map(i => i.year).filter(Boolean);
+  const span = years.length ? (Math.min(...years) === Math.max(...years) ? Math.min(...years) : `${Math.min(...years)}–${Math.max(...years)}`) : '';
+  const genreCount = {};
+  g.items.forEach(i => (i.genres || []).forEach(x => genreCount[x] = (genreCount[x] || 0) + 1));
+  const topGenres = Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0]);
+  const kind = g.items.every(i => i.type === 'tv') ? 'Serien' : g.items.every(i => i.type === 'movie') ? 'Filme' : 'Titel';
+  const done = g.items.filter(i => i.ratings?.[me] != null).length;
+  return `<button class="row" data-g="${esc(g.key)}">
+    <div class="rt"><div class="me${m == null ? ' none' : ''}" style="font-size:15px">${fmt(m)}</div><div class="ot${o == null ? ' none' : ''}">${fmt(o)}</div></div>
+    <div class="body">
+      <div class="l1"><span class="t" style="color:${frColor(g.name)}">${esc(g.name)} <span class="kind">▸</span></span><span class="y">${span}</span></div>
+      <div class="meta"><span>${g.items.length} ${kind} · ${done} bewertet</span></div>
+      <div class="meta"><span>${esc(topGenres.join(', '))}</span></div>
+    </div>
+  </button>`;
 }
 
 function avg(i) {
@@ -238,7 +271,10 @@ function row(i) {
   </button>`;
 }
 
-$('#list').onclick = e => { const r = e.target.closest('.row'); if (r) openSheet(r.dataset.id); };
+$('#list').onclick = e => {
+  const g = e.target.closest('[data-g]'); if (g) return toggleGroup(g.dataset.g);
+  const r = e.target.closest('.row'); if (r) openSheet(r.dataset.id);
+};
 
 /* ---------- TMDB ---------- */
 function tmdb(path, params = {}) {
