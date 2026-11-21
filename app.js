@@ -146,7 +146,7 @@ const frList = i => (i.franchise || '').split(',').map(x => x.trim()).filter(Boo
 // Dezente, feste Farbe pro Reihe (gleicher Name = gleiche Farbe)
 const FR_HUES = [175, 35, 205, 95, 50, 150, 190, 120, 70, 220]; // ohne Rot- und Lilatöne (Aurora/Vivica)
 function frColor(name, light = 58) {
-  let h = 0; for (const c of name.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  let h = 7; for (const c of name.toLowerCase()) h = (h * 53 + c.charCodeAt(0)) >>> 0;
   return `hsl(${FR_HUES[h % FR_HUES.length]} 28% ${light}%)`;
 }
 const groupName = i => [...frList(i), i.collectionName || ''].filter(Boolean).join(' ');
