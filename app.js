@@ -316,18 +316,23 @@ async function openBulk(title, loader, franchise = '') {
   try { data = await loader(); } catch (e) { sheet.innerHTML = '<div class="sub">Konnte die Filmreihe nicht laden.</div>'; return; }
   const have = haveKey();
   const missing = data.parts.filter(p => !have.has('movie:' + p.id));
+  // schon vorhandene Filme, die noch nicht die Franchise tragen
+  const retag = franchise ? data.parts.map(p => findId('movie', p.id))
+    .filter(id => id && (items[id].franchise || '') !== franchise) : [];
+  const label = missing.length ? `${missing.length} hinzufügen` : retag.length ? `Als ${franchise} zusammenfassen` : '';
   sheet.innerHTML = `
     <h2>${esc(data.name)}</h2>
     <div class="sub">${data.parts.length} Filme${missing.length < data.parts.length ? ` · ${data.parts.length - missing.length} schon in der Liste` : ''}</div>
     <div class="blist">${data.parts.map(p => `<div class="bitem${have.has('movie:' + p.id) ? ' have' : ''}"><span>${esc(p.title)}</span><span class="y">${(p.release_date || '').slice(0, 4)}</span></div>`).join('')}</div>
     <div class="actions">
       <button class="btn" id="bCancel">Abbrechen</button>
-      ${missing.length ? `<button class="btn primary" id="bAdd">${missing.length} hinzufügen</button>` : '<span class="sub">Alle schon drin</span>'}
+      ${label ? `<button class="btn primary" id="bAdd">${label}</button>` : '<span class="sub">Alle schon drin</span>'}
     </div>`;
   $('#bCancel').onclick = closeSheet;
-  if (!missing.length) return;
+  if (!label) return;
   $('#bAdd').onclick = async () => {
     const btn = $('#bAdd'); btn.disabled = true;
+    for (const id of retag) await db.child(id + '/franchise').set(franchise);
     let n = 0;
     for (let i = 0; i < missing.length; i += 6) {
       const batch = await Promise.all(missing.slice(i, i + 6).map(p => fetchEntry('movie', p.id).catch(() => null)));
@@ -387,7 +392,16 @@ function openSheet(id) {
     db.child(id + '/ratings/' + me).set(m === n ? null : n);
   };
   $('#rwBtn').onclick = () => db.child(id + '/rewatch/' + me).set(rw ? null : true);
-  $('#frSave').onclick = () => { db.child(id + '/franchise').set($('#frIn').value.trim()); $('#frIn').blur(); };
+  $('#frSave').onclick = () => {
+    const v = $('#frIn').value.trim();
+    // gilt für die ganze Filmreihe, damit sie zusammenbleibt
+    const ids = i.collectionId
+      ? Object.keys(items).filter(k => items[k].collectionId === i.collectionId && (items[k].franchise || '') === (i.franchise || ''))
+      : [id];
+    if (!ids.includes(id)) ids.push(id);
+    ids.forEach(k => db.child(k + '/franchise').set(v));
+    $('#frIn').blur();
+  };
   $('#del').onclick = () => { if (confirm(`„${i.title}“ entfernen?`)) { db.child(id).remove(); closeSheet(); } };
   $('#close').onclick = closeSheet;
 
