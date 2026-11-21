@@ -1,4 +1,4 @@
-const VERSION = '21.11. · 4';
+const VERSION = '21.11. · 5';
 const USERS = { aurora: 'Aurora', vivica: 'Vivica' };
 const TMDB = 'https://api.themoviedb.org/3';
 const IMG = 'https://image.tmdb.org/t/p/w92';
@@ -133,7 +133,9 @@ $('#sort').onchange = render;
 /* ---------- Regeln ---------- */
 const rated = (it, u) => it.ratings && it.ratings[u] != null;
 const inRewatch = it => !!(it.rewatch && (it.rewatch.aurora || it.rewatch.vivica));
-const inWatch = it => !inRewatch(it) && !(rated(it, 'aurora') && rated(it, 'vivica'));
+// Gesehen = bewertet oder als Rewatch markiert. Watch List: noch nicht von beiden gesehen.
+const seen = (it, u) => rated(it, u) || !!it.rewatch?.[u];
+const inWatch = it => !(seen(it, 'aurora') && seen(it, 'vivica'));
 
 function visible() {
   const all = Object.entries(items).map(([id, it]) => ({ id, ...it }));
@@ -195,7 +197,7 @@ function render() {
   if (q && (tab === 'watch' || tab === 'rewatch')) arr = arr.filter(i => (i.title + ' ' + groupName(i)).toLowerCase().includes(q));
 
   if (!arr.length) {
-    list.innerHTML = `<div class="empty">${tab === 'movie' ? 'Noch keine Filme. Such oben nach einem Titel.' : tab === 'tv' ? 'Noch keine Serien. Such oben nach einem Titel.' : tab === 'watch' ? 'Hier landet alles, was noch nicht von euch beiden bewertet ist.' : 'Hier landet alles mit Rewatch-Haken.'}</div>`;
+    list.innerHTML = `<div class="empty">${tab === 'movie' ? 'Noch keine Filme. Such oben nach einem Titel.' : tab === 'tv' ? 'Noch keine Serien. Such oben nach einem Titel.' : tab === 'watch' ? 'Hier landet alles, was noch nicht von euch beiden gesehen wurde.' : 'Hier landet alles mit Rewatch-Haken.'}</div>`;
     return;
   }
 
@@ -278,6 +280,7 @@ const OPEN_W = 196;
 let swOpen = null, sw = null;
 function closeSwipe() { if (swOpen) { swOpen.style.transform = ''; swOpen.classList.remove('open'); swOpen = null; } }
 $('#list').addEventListener('touchstart', e => {
+  if (e.target.closest('.act')) return;   // Button-Tipp nicht durch Zuklappen schlucken
   const r = e.target.closest('.sw .row'); if (!r) { closeSwipe(); return; }
   if (swOpen && swOpen !== r) closeSwipe();
   const t = e.touches[0];
