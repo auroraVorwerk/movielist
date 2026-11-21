@@ -2,7 +2,33 @@ const USERS = { aurora: 'Aurora', vivica: 'Vivica' };
 const TMDB = 'https://api.themoviedb.org/3';
 const IMG = 'https://image.tmdb.org/t/p/w92';
 const IMG_L = 'https://image.tmdb.org/t/p/w342';
-const MCU_KEYWORD = 180547;
+// Große Universen, die bei TMDB auf mehrere Filmreihen verteilt sind.
+// k = TMDB-Stichwort, c = Filmreihen, m = Einzelfilme ohne Reihe
+const UNIVERSES = [
+  { name: 'Marvel Cinematic Universe', fr: 'MCU', a: ['mcu', 'marvel'], k: [180547] },
+  { name: 'DC Extended Universe', fr: 'DCEU', a: ['dceu', 'dc extended', 'justice league', 'batman', 'superman'], k: [229266] },
+  { name: 'DC Universe (ab 2025)', fr: 'DCU', a: ['dcu', 'dc universe', 'superman'], k: [312528] },
+  { name: 'Star Wars', fr: 'Star Wars', a: ['star wars', 'krieg der sterne'], c: [10], m: [330459, 348350] },
+  { name: 'Wizarding World', fr: 'Wizarding World', a: ['wizarding', 'harry potter', 'phantastische tierwesen', 'fantastic beasts'], c: [1241, 435259] },
+  { name: 'Spider-Man (alle Reihen)', fr: 'Spider-Man', a: ['spider', 'spiderman'], c: [556, 125574, 531241, 573436] },
+  { name: 'X-Men inkl. Deadpool und Wolverine', fr: 'X-Men', a: ['x-men', 'xmen', 'x men', 'deadpool', 'wolverine'], c: [748, 448150, 453993] },
+  { name: 'Mittelerde', fr: 'Mittelerde', a: ['mittelerde', 'herr der ringe', 'hobbit', 'lord of the rings', 'middle earth', 'tolkien'], c: [119, 121938], m: [839033] },
+  { name: 'Ich – Einfach unverbesserlich und Minions', fr: 'Minions', a: ['ich einfach', 'ich - einfach', 'ich – einfach', 'minions', 'despicable'], c: [86066, 544669] },
+  { name: 'Shrek inkl. Der gestiefelte Kater', fr: 'Shrek', a: ['shrek', 'gestiefelte', 'puss in boots'], c: [2150, 94602] },
+  { name: 'Rocky und Creed', fr: 'Rocky', a: ['rocky', 'creed'], c: [1575, 553717] },
+  { name: 'Conjuring-Universum', fr: 'Conjuring', a: ['conjuring', 'annabelle', 'the nun', 'nun'], c: [313086, 402074, 968052], m: [480414] },
+  { name: 'MonsterVerse', fr: 'MonsterVerse', a: ['monsterverse', 'godzilla', 'kong'], k: [380322] },
+  { name: 'Planet der Affen (alle)', fr: 'Planet der Affen', a: ['planet der affen', 'planet of the apes'], c: [1709, 173710] },
+  { name: 'Star Trek (alle Kinofilme)', fr: 'Star Trek', a: ['star trek'], c: [151, 115570, 115575] },
+  { name: 'Die Tribute von Panem inkl. Prequels', fr: 'Panem', a: ['panem', 'tribute von panem', 'hunger games'], c: [131635, 1701563] },
+  { name: 'Alien inkl. Prometheus', fr: 'Alien', a: ['alien', 'prometheus'], c: [8091, 135416], m: [945961] },
+  { name: 'Drachenzähmen leicht gemacht (Animation und Realfilm)', fr: 'Drachenzähmen', a: ['drachenzähmen', 'how to train'], c: [89137, 1458864] }
+];
+const norm = s => s.toLowerCase().replace(/[–-]/g, '-').trim();
+const matchUniverses = q => {
+  q = norm(q);
+  return UNIVERSES.filter(u => u.a.some(a => a.startsWith(q) || q.startsWith(a) || (q.length >= 4 && a.includes(q))));
+};
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
@@ -251,10 +277,12 @@ async function search(q) {
     ]);
     if (q !== lastQ) return;
     let html = '';
-    if (tab === 'movie' && /^(mcu|marvel)/i.test(q)) {
-      html += `<button class="res coll" data-mcu="1"><div class="noimg"></div><div><div>Marvel Cinematic Universe</div><div class="tag">Ganze Filmreihe hinzufügen</div></div></button>`;
-    }
-    (colls.results || []).slice(0, 2).forEach(c => {
+    const unis = tab === 'movie' ? matchUniverses(q) : [];
+    unis.forEach(u => {
+      html += `<button class="res coll" data-uni="${UNIVERSES.indexOf(u)}"><div class="noimg"></div><div><div>${esc(u.name)}</div><div class="tag">Ganzes Universum hinzufügen</div></div></button>`;
+    });
+    const uniColls = new Set(unis.flatMap(u => u.c || []));
+    (colls.results || []).filter(c => !uniColls.has(c.id)).slice(0, unis.length ? 1 : 2).forEach(c => {
       const img = c.poster_path ? `<img src="${IMG + c.poster_path}" alt="">` : '<div class="noimg"></div>';
       html += `<button class="res coll" data-coll="${c.id}">${img}<div><div>${esc(cleanCollection(c.name))}</div><div class="tag">Ganze Filmreihe hinzufügen</div></div></button>`;
     });
@@ -278,7 +306,7 @@ async function search(q) {
 $('#results').onclick = async e => {
   const b = e.target.closest('.res'); if (!b) return;
   hideResults(); $('#q').value = '';
-  if (b.dataset.mcu) return openBulk('Marvel Cinematic Universe', loadMcu, 'MCU');
+  if (b.dataset.uni) { const u = UNIVERSES[Number(b.dataset.uni)]; return openBulk(u.name, () => loadUniverse(u), u.fr); }
   if (b.dataset.coll) return openBulk(null, () => loadCollection(Number(b.dataset.coll)));
   const tmdbId = Number(b.dataset.id), type = tab;
   const existing = findId(type, tmdbId);
@@ -299,12 +327,23 @@ async function loadCollection(id) {
     .sort((a, b) => a.release_date.localeCompare(b.release_date));
   return { name: cleanCollection(d.name), parts };
 }
-async function loadMcu() {
-  const base = { with_keywords: MCU_KEYWORD, sort_by: 'primary_release_date.asc', 'with_runtime.gte': 70, without_genres: 99, 'primary_release_date.lte': today() };
+async function loadKeyword(kw) {
+  const base = { with_keywords: kw, sort_by: 'primary_release_date.asc', 'with_runtime.gte': 70, without_genres: 99, 'primary_release_date.lte': today() };
   const first = await tmdb('/discover/movie', { ...base, page: 1 });
   let parts = first.results || [];
   for (let p = 2; p <= Math.min(first.total_pages || 1, 5); p++) parts = parts.concat((await tmdb('/discover/movie', { ...base, page: p })).results || []);
-  return { name: 'Marvel Cinematic Universe', parts };
+  return parts;
+}
+async function loadUniverse(u) {
+  const lists = await Promise.all([
+    ...(u.k || []).map(loadKeyword),
+    ...(u.c || []).map(id => loadCollection(id).then(c => c.parts).catch(() => [])),
+    ...(u.m || []).map(id => tmdb(`/movie/${id}`).then(m => [m]).catch(() => []))
+  ]);
+  const seen = new Set();
+  const parts = lists.flat().filter(p => p.release_date && p.release_date <= today() && !seen.has(p.id) && seen.add(p.id))
+    .sort((a, b) => a.release_date.localeCompare(b.release_date));
+  return { name: u.name, parts };
 }
 
 async function openBulk(title, loader, franchise = '') {
@@ -318,7 +357,7 @@ async function openBulk(title, loader, franchise = '') {
   const missing = data.parts.filter(p => !have.has('movie:' + p.id));
   // schon vorhandene Filme, die noch nicht die Franchise tragen
   const retag = franchise ? data.parts.map(p => findId('movie', p.id))
-    .filter(id => id && (items[id].franchise || '') !== franchise) : [];
+    .filter(id => id && !items[id].franchise) : [];
   const label = missing.length ? `${missing.length} hinzufügen` : retag.length ? `Als ${franchise} zusammenfassen` : '';
   sheet.innerHTML = `
     <h2>${esc(data.name)}</h2>
