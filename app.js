@@ -141,9 +141,34 @@ function visible() {
 }
 
 /* ---------- Liste ---------- */
-const groupKey = i => i.franchise ? 'f:' + i.franchise.trim().toLowerCase()
-                    : i.collectionId ? 'c:' + i.collectionId : 'i:' + i.id;
-const groupName = i => i.franchise || i.collectionName || '';
+// Eine Franchise-Angabe kann mehrere Reihen enthalten: "MCU, X-Men"
+const frList = i => (i.franchise || '').split(',').map(x => x.trim()).filter(Boolean);
+const groupName = i => [...frList(i), i.collectionName || ''].filter(Boolean).join(' ');
+
+// Ein Film kann in mehreren Gruppen stehen; der Eintrag dahinter bleibt derselbe.
+function buildGroups(arr) {
+  const groups = new Map();
+  const add = (key, name, i) => {
+    if (!groups.has(key)) groups.set(key, { name, items: [] });
+    groups.get(key).items.push(i);
+  };
+  arr.forEach(i => {
+    frList(i).forEach(f => add('f:' + f.toLowerCase(), f, i));
+    if (i.collectionId) add('c:' + i.collectionId, i.collectionName || '', i);
+  });
+  // Filmreihe weglassen, wenn alle ihre Filme schon gemeinsam in einer Franchise stehen
+  for (const [key, g] of groups) {
+    if (!key.startsWith('c:')) continue;
+    const shared = g.items.map(i => frList(i).map(f => f.toLowerCase()))
+      .reduce((a, b) => a.filter(x => b.includes(x)));
+    if (shared.length) groups.delete(key);
+  }
+  const list = [...groups.values()].filter(g => g.items.length > 1);
+  const grouped = new Set(list.flatMap(g => g.items.map(i => i.id)));
+  arr.filter(i => !grouped.has(i.id)).forEach(i => list.push({ name: '', items: [i] }));
+  list.forEach(g => g.items.sort((a, b) => (a.year || 9999) - (b.year || 9999)));
+  return list;
+}
 
 function render() {
   if (!me) return;
@@ -167,30 +192,25 @@ function render() {
     return;
   }
 
-  const groups = new Map();
-  arr.forEach(i => {
-    const key = groupKey(i);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(i);
-  });
-  const gl = [...groups.values()].map(g => g.sort((a, b) => (a.year || 9999) - (b.year || 9999)));
+  const gl = buildGroups(arr);
 
   const mode = $('#sort').value;
-  const score = g => {
+  const score = grp => {
+    const g = grp.items;
     if (mode === 'year') return Math.min(...g.map(i => i.year || 9999));
     const vals = g.map(i => mode === 'mine' ? i.ratings?.[me] : avg(i)).filter(v => v != null);
     return vals.length ? Math.max(...vals) : -1;
   };
-  const name = g => (g.length > 1 ? groupName(g[0]) : g[0].title) || g[0].title || '';
+  const name = g => g.name || g.items[0].title || '';
   gl.sort((a, b) => {
     if (mode === 'title') return name(a).localeCompare(name(b), 'de');
     if (mode === 'year') return score(a) - score(b);
     return score(b) - score(a) || name(a).localeCompare(name(b), 'de');
   });
 
-  list.innerHTML = gl.map(g => g.length > 1
-    ? `<div class="grp">${esc(groupName(g[0]))}</div><div class="grpbody">${g.map(row).join('')}</div>`
-    : row(g[0])).join('');
+  list.innerHTML = gl.map(g => g.items.length > 1
+    ? `<div class="grp">${esc(g.name)}</div><div class="grpbody">${g.items.map(row).join('')}</div>`
+    : row(g.items[0])).join('');
 }
 
 function avg(i) {
@@ -357,7 +377,7 @@ async function openBulk(title, loader, franchise = '') {
   const missing = data.parts.filter(p => !have.has('movie:' + p.id));
   // schon vorhandene Filme, die noch nicht die Franchise tragen
   const retag = franchise ? data.parts.map(p => findId('movie', p.id))
-    .filter(id => id && !items[id].franchise) : [];
+    .filter(id => id && !frList(items[id]).some(f => f.toLowerCase() === franchise.toLowerCase())) : [];
   const label = missing.length ? `${missing.length} hinzufügen` : retag.length ? `Als ${franchise} zusammenfassen` : '';
   sheet.innerHTML = `
     <h2>${esc(data.name)}</h2>
@@ -371,7 +391,7 @@ async function openBulk(title, loader, franchise = '') {
   if (!label) return;
   $('#bAdd').onclick = async () => {
     const btn = $('#bAdd'); btn.disabled = true;
-    for (const id of retag) await db.child(id + '/franchise').set(franchise);
+    for (const id of retag) await db.child(id + '/franchise').set([...frList(items[id]), franchise].join(', '));
     let n = 0;
     for (let i = 0; i < missing.length; i += 6) {
       const batch = await Promise.all(missing.slice(i, i + 6).map(p => fetchEntry('movie', p.id).catch(() => null)));
@@ -416,8 +436,8 @@ function openSheet(id) {
     <div class="lbl">Rewatch</div>
     <button class="check${rw ? ' on' : ''}" id="rwBtn"><span class="box">${rw ? '✓' : ''}</span>Lohnt sich nochmal</button>
 
-    <div class="lbl">Franchise</div>
-    <div class="fr"><input id="frIn" value="${esc(frVal)}" placeholder="z. B. MCU"><button class="btn" id="frSave">Speichern</button></div>
+    <div class="lbl">Franchise · mehrere mit Komma trennen</div>
+    <div class="fr"><input id="frIn" value="${esc(frVal)}" placeholder="z. B. MCU, X-Men"><button class="btn" id="frSave">Speichern</button></div>
 
     <div class="actions">
       <button class="danger" id="del">Entfernen</button>
