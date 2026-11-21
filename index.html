@@ -41,6 +41,10 @@
   #login h1 { margin: 0; font-size: 24px; font-weight: 600; }
   .who { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 260px; }
   .who button { padding: 14px; border-radius: 10px; border: 1px solid var(--line); font-size: 16px; }
+  #pin { height: 48px; text-align: center; font-size: 22px; letter-spacing: 8px; background: transparent; border: 1px solid var(--line); border-radius: 10px; outline: none; }
+  #pin:focus { border-color: var(--muted); }
+  #pin::placeholder { letter-spacing: normal; font-size: 16px; color: var(--muted); }
+  .pinerr { min-height: 18px; text-align: center; font-size: 13px; color: var(--aurora-text); }
   .who .a { color: var(--aurora-text); }
   .who .v { color: var(--vivica-text); }
 
@@ -125,7 +129,11 @@
 
 <div id="login">
   <h1>Movielist</h1>
-  <div class="who">
+  <div class="who" id="pinBox">
+    <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="PIN">
+    <div id="pinErr" class="pinerr"></div>
+  </div>
+  <div class="who hidden" id="whoBox">
     <button class="a" data-user="aurora">Aurora</button>
     <button class="v" data-user="vivica">Vivica</button>
   </div>
@@ -193,6 +201,23 @@ function setUser(u) {
   render();
 }
 document.querySelectorAll('#login button').forEach(b => b.onclick = () => setUser(b.dataset.user));
+
+/* PIN (einmal pro Gerät) */
+const PIN_HASH = '138c0d83ca87eed6437518b1a81ef97e2a74feed4a455f6276b62bb07e240079';
+const pinOk = () => localStorage.getItem('movielist-pin') === PIN_HASH;
+async function sha256(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function showWho() { $('#pinBox').classList.add('hidden'); $('#whoBox').classList.remove('hidden'); }
+$('#pin').oninput = async () => {
+  const v = $('#pin').value.replace(/\D/g, '');
+  $('#pin').value = v; $('#pinErr').textContent = '';
+  if (v.length < 6) return;
+  if (await sha256(v) === PIN_HASH) { localStorage.setItem('movielist-pin', PIN_HASH); showWho(); }
+  else { $('#pinErr').textContent = 'Falsche PIN'; $('#pin').value = ''; }
+};
+if (pinOk()) showWho();
 $('#switch').onclick = () => {
   localStorage.removeItem('movielist-user');
   $('#app').classList.add('hidden');
@@ -431,7 +456,7 @@ function closeSheet() { openId = null; $('#sheet').classList.add('hidden'); $('#
 $('#sheetBg').onclick = closeSheet;
 
 /* ---------- Start ---------- */
-if (me && USERS[me]) setUser(me);
+if (me && USERS[me] && pinOk()) setUser(me);
 </script>
 </body>
 </html>
