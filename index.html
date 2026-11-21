@@ -84,8 +84,21 @@
   .grp { display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: var(--muted); margin-top: 14px; padding: 4px 0; text-align: left; }
   .grp .cnt { color: var(--faint); }
   .grpbody { border-left: 1px solid var(--line); padding-left: 10px; }
+  .sw { position: relative; overflow: hidden; }
+  .acts { position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 8px; padding-left: 8px; }
+  .act { height: calc(100% - 14px); min-width: 88px; padding: 0 12px; border-radius: 14px; font-size: 14px; color: #fff; }
+  .act-rw { background: #3d3944; }
+  .act-del { background: #c8424c; }
+  .sw .row { position: relative; background: var(--bg); transition: transform .22s ease, border-radius .22s; touch-action: pan-y; }
+  .sw .row.open { border-radius: 0 14px 14px 0; background: #1c1a1f; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 528px; margin: 0 auto; z-index: 20;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #24212a; font-size: 14px; }
+  #toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #toast button { color: var(--me-text); flex-shrink: 0; }
+  .bitem.off .bt { text-decoration: line-through; color: var(--faint); }
+  .bitem.off .y { color: var(--faint); }
   .row { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 10px 0; border-bottom: 1px solid var(--line); }
-  .grpbody .row:last-child { border-bottom: none; }
+  .grpbody .sw:last-child .row { border-bottom: none; }
   .rt { width: 26px; text-align: center; flex-shrink: 0; }
   .rt .me { font-size: 17px; font-weight: 600; color: var(--me-text); }
   .rt .ot { font-size: 11px; color: var(--other-text); }
@@ -115,7 +128,7 @@
   .suggest .s2 { font-size: 12px; color: var(--muted); }
   .res.coll .tag { font-size: 11px; color: var(--me-text); }
   .blist { margin-top: 12px; max-height: 45vh; overflow-y: auto; }
-  .bitem { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .bitem { width: 100%; text-align: left; display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
   .bitem .y { color: var(--muted); flex-shrink: 0; }
   .bitem.have { color: var(--faint); }
   .primary { background: var(--me); border-color: var(--me); color: #fff; }
@@ -182,6 +195,7 @@
 
 <div id="sheetBg" class="hidden"></div>
 <div id="sheet" class="hidden"></div>
+<div id="toast" class="hidden"></div>
 
 <script src="config.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>

@@ -261,19 +261,74 @@ function row(i) {
   const m = i.ratings?.[me], o = i.ratings?.[other()];
   const mixed = tab === 'watch' || tab === 'rewatch';
   const line1 = [esc(i.producer || ''), frList(i).map(f => `<span style="color:${frColor(f)}">${esc(f)}</span>`).join(', ')].filter(Boolean).join(' · ');
-  return `<button class="row" data-id="${i.id}">
+  const rw = !!i.rewatch?.[me];
+  return `<div class="sw"><div class="acts"><button class="act act-rw" data-act="rw" data-id="${i.id}">${rw ? 'Kein Rewatch' : 'Rewatch'}</button><button class="act act-del" data-act="del" data-id="${i.id}">Löschen</button></div><button class="row" data-id="${i.id}">
     <div class="rt"><div class="me${m == null ? ' none' : ''}">${m ?? '–'}</div><div class="ot${o == null ? ' none' : ''}">${o ?? '–'}</div></div>
     <div class="body">
       <div class="l1"><span class="t">${esc(i.title)}${mixed ? ` <span class="kind">${i.type === 'tv' ? 'Serie' : 'Film'}</span>` : ''}</span><span class="y">${i.year || ''}</span></div>
       <div class="meta"><span>${line1 || '&nbsp;'}</span></div>
       <div class="meta"><span>${esc((i.genres || []).join(', '))}</span>${inRewatch(i) ? '<span class="rw">↻</span>' : ''}</div>
     </div>
-  </button>`;
+  </button></div>`;
+}
+
+/* ---------- Wischen nach links ---------- */
+const OPEN_W = 196;
+let swOpen = null, sw = null;
+function closeSwipe() { if (swOpen) { swOpen.style.transform = ''; swOpen.classList.remove('open'); swOpen = null; } }
+$('#list').addEventListener('touchstart', e => {
+  const r = e.target.closest('.sw .row'); if (!r) { closeSwipe(); return; }
+  if (swOpen && swOpen !== r) closeSwipe();
+  const t = e.touches[0];
+  sw = { r, x: t.clientX, y: t.clientY, base: r === swOpen ? -OPEN_W : 0, dx: 0, dir: null };
+}, { passive: true });
+$('#list').addEventListener('touchmove', e => {
+  if (!sw) return;
+  const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+  if (!sw.dir) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'; }
+  if (sw.dir !== 'h') return;
+  e.preventDefault();
+  sw.dx = dx;
+  const x = Math.min(0, Math.max(-OPEN_W - 30, sw.base + dx));
+  sw.r.style.transition = 'none';
+  sw.r.style.transform = `translateX(${x}px)`;
+  sw.r.classList.toggle('open', x < -4);
+}, { passive: false });
+$('#list').addEventListener('touchend', () => {
+  if (!sw) return;
+  const { r, base, dx, dir } = sw; sw = null;
+  r.style.transition = '';
+  if (dir !== 'h') return;
+  r.dataset.swiped = '1'; setTimeout(() => delete r.dataset.swiped, 350);
+  if (base + dx < -70) { r.style.transform = `translateX(${-OPEN_W}px)`; r.classList.add('open'); swOpen = r; }
+  else { r.style.transform = ''; r.classList.remove('open'); if (swOpen === r) swOpen = null; }
+});
+
+/* Löschen mit Rückgängig */
+let undoTimer = null;
+function deleteItem(id) {
+  const copy = items[id]; if (!copy) return;
+  db.child(id).remove();
+  const t = $('#toast');
+  t.innerHTML = `<span>„${esc(copy.title)}“ gelöscht</span><button id="undo">Rückgängig</button>`;
+  t.classList.remove('hidden');
+  $('#undo').onclick = () => { db.child(id).set(copy); t.classList.add('hidden'); };
+  clearTimeout(undoTimer); undoTimer = setTimeout(() => t.classList.add('hidden'), 5000);
 }
 
 $('#list').onclick = e => {
+  const a = e.target.closest('.act');
+  if (a) {
+    const id = a.dataset.id, it = items[id]; closeSwipe();
+    if (a.dataset.act === 'del') deleteItem(id);
+    else if (it) db.child(id + '/rewatch/' + me).set(it.rewatch?.[me] ? null : true);
+    return;
+  }
   const g = e.target.closest('[data-g]'); if (g) return toggleGroup(g.dataset.g);
-  const r = e.target.closest('.row'); if (r) openSheet(r.dataset.id);
+  const r = e.target.closest('.row'); if (!r) return;
+  if (r.dataset.swiped) return;
+  if (swOpen) { closeSwipe(); return; }
+  openSheet(r.dataset.id);
 };
 
 /* ---------- TMDB ---------- */
@@ -428,28 +483,43 @@ async function openBulk(title, loader, franchise = '', type = 'movie') {
   // schon vorhandene Filme, die noch nicht die Franchise tragen
   const retag = franchise ? data.parts.map(p => findId(type, p.id))
     .filter(id => id && !frList(items[id]).some(f => f.toLowerCase() === franchise.toLowerCase())) : [];
-  const label = missing.length ? `${missing.length} hinzufügen` : retag.length ? `Als ${franchise} zusammenfassen` : '';
+  const skip = new Set();
+  const labelFor = () => {
+    const n = missing.filter(p => !skip.has(p.id)).length, r = retag.filter(id => !skip.has(items[id]?.tmdbId)).length;
+    return n ? `${n} hinzufügen` : r ? `Als ${franchise} zusammenfassen` : '';
+  };
+  const label = labelFor();
   sheet.innerHTML = `
     <h2>${esc(data.name)}</h2>
     <div class="sub">${data.parts.length} ${type === 'tv' ? 'Serien' : 'Filme'}${missing.length < data.parts.length ? ` · ${data.parts.length - missing.length} schon in der Liste` : ''}</div>
-    <div class="blist">${data.parts.map(p => `<div class="bitem${have.has(type + ':' + p.id) ? ' have' : ''}"><span>${esc(p.title)}</span><span class="y">${p.date.slice(0, 4)}</span></div>`).join('')}</div>
+    <div class="sub" style="margin-top:2px">Antippen zum Abwählen</div>
+    <div class="blist">${data.parts.map(p => `<button class="bitem${have.has(type + ':' + p.id) ? ' have' : ''}" data-p="${p.id}"><span class="bt">${esc(p.title)}</span><span class="y">${p.date.slice(0, 4)}</span></button>`).join('')}</div>
     <div class="actions">
       <button class="btn" id="bCancel">Abbrechen</button>
       ${label ? `<button class="btn primary" id="bAdd">${label}</button>` : '<span class="sub">Alle schon drin</span>'}
     </div>`;
   $('#bCancel').onclick = closeSheet;
   if (!label) return;
+  $('.blist').onclick = e => {
+    const b = e.target.closest('.bitem'); if (!b) return;
+    const pid = Number(b.dataset.p);
+    skip.has(pid) ? skip.delete(pid) : skip.add(pid);
+    b.classList.toggle('off', skip.has(pid));
+    const l = labelFor(), btn = $('#bAdd');
+    btn.textContent = l || 'Nichts ausgewählt'; btn.disabled = !l;
+  };
   $('#bAdd').onclick = async () => {
     const btn = $('#bAdd'); btn.disabled = true;
-    for (const id of retag) await db.child(id + '/franchise').set([...frList(items[id]), franchise].join(', '));
+    const add = missing.filter(p => !skip.has(p.id));
+    for (const id of retag.filter(id => !skip.has(items[id]?.tmdbId))) await db.child(id + '/franchise').set([...frList(items[id]), franchise].join(', '));
     let n = 0;
-    for (let i = 0; i < missing.length; i += 6) {
-      const batch = await Promise.all(missing.slice(i, i + 6).map(p => fetchEntry(type, p.id).catch(() => null)));
+    for (let i = 0; i < add.length; i += 6) {
+      const batch = await Promise.all(add.slice(i, i + 6).map(p => fetchEntry(type, p.id).catch(() => null)));
       for (const e of batch) {
         if (!e) continue;
         if (franchise) e.franchise = franchise;
         await db.push().set(e);
-        btn.textContent = `${++n} / ${missing.length}`;
+        btn.textContent = `${++n} / ${add.length}`;
       }
     }
     closeSheet();
@@ -511,7 +581,7 @@ function openSheet(id) {
     ids.forEach(k => db.child(k + '/franchise').set(v));
     $('#frIn').blur();
   };
-  $('#del').onclick = () => { if (confirm(`„${i.title}“ entfernen?`)) { db.child(id).remove(); closeSheet(); } };
+  $('#del').onclick = () => { closeSheet(); deleteItem(id); };
   $('#close').onclick = closeSheet;
 
   if (i.collectionId) suggestCollection(id, i.collectionId, i.collectionName);
