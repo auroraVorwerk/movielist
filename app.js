@@ -1,3 +1,4 @@
+const VERSION = '21.11. · 4';
 const USERS = { aurora: 'Aurora', vivica: 'Vivica' };
 const TMDB = 'https://api.themoviedb.org/3';
 const IMG = 'https://image.tmdb.org/t/p/w92';
@@ -285,7 +286,7 @@ $('#list').addEventListener('touchstart', e => {
 $('#list').addEventListener('touchmove', e => {
   if (!sw) return;
   const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
-  if (!sw.dir) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'; }
+  if (!sw.dir) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.dir = Math.abs(dx) > Math.abs(dy) * 0.8 ? 'h' : 'v'; }
   if (sw.dir !== 'h') return;
   e.preventDefault();
   sw.dx = dx;
@@ -294,7 +295,7 @@ $('#list').addEventListener('touchmove', e => {
   sw.r.style.transform = `translateX(${x}px)`;
   sw.r.classList.toggle('open', x < -4);
 }, { passive: false });
-$('#list').addEventListener('touchend', () => {
+const swEnd = () => {
   if (!sw) return;
   const { r, base, dx, dir } = sw; sw = null;
   r.style.transition = '';
@@ -302,7 +303,9 @@ $('#list').addEventListener('touchend', () => {
   r.dataset.swiped = '1'; setTimeout(() => delete r.dataset.swiped, 350);
   if (base + dx < -70) { r.style.transform = `translateX(${-OPEN_W}px)`; r.classList.add('open'); swOpen = r; }
   else { r.style.transform = ''; r.classList.remove('open'); if (swOpen === r) swOpen = null; }
-});
+};
+$('#list').addEventListener('touchend', swEnd);
+$('#list').addEventListener('touchcancel', swEnd);
 
 /* Löschen mit Rückgängig */
 let undoTimer = null;
@@ -604,4 +607,5 @@ function closeSheet() { openId = null; $('#sheet').classList.add('hidden'); $('#
 $('#sheetBg').onclick = closeSheet;
 
 /* ---------- Start ---------- */
+$('#ver').textContent = 'Version ' + VERSION;
 if (me && USERS[me] && pinOk()) setUser(me);

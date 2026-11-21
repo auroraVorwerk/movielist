@@ -91,6 +91,7 @@
   .act-del { background: #c8424c; }
   .sw .row { position: relative; background: var(--bg); transition: transform .22s ease, border-radius .22s; touch-action: pan-y; }
   .sw .row.open { border-radius: 0 14px 14px 0; background: #1c1a1f; }
+  #ver { text-align: center; font-size: 11px; color: var(--faint); padding: 28px 0 0; }
   #toast { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 528px; margin: 0 auto; z-index: 20;
     display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #24212a; font-size: 14px; }
   #toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -191,15 +192,16 @@
     </div>
   </div>
   <div id="list"></div>
+  <div id="ver"></div>
 </div>
 
 <div id="sheetBg" class="hidden"></div>
 <div id="sheet" class="hidden"></div>
 <div id="toast" class="hidden"></div>
 
-<script src="config.js"></script>
+<script>document.write('<script src="config.js?v=' + Date.now() + '"><\/script>')</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="app.js"></script>
+<script>document.write('<script src="app.js?v=' + Date.now() + '"><\/script>')</script>
 </body>
 </html>
