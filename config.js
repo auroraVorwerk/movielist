@@ -12,4 +12,4 @@ window.FIREBASE_CONFIG = {
 };
 
 // 2) TMDB: themoviedb.org → Einstellungen → API → "API-Schlüssel" (v3) oder "Lesezugriffstoken" (v4)
-window.TMDB_KEY = "";
+window.TMDB_KEY = "d3f7f1eee63e81751e084b4e22640772";
