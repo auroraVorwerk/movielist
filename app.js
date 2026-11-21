@@ -3,25 +3,25 @@ const TMDB = 'https://api.themoviedb.org/3';
 const IMG = 'https://image.tmdb.org/t/p/w92';
 const IMG_L = 'https://image.tmdb.org/t/p/w342';
 // Große Universen, die bei TMDB auf mehrere Filmreihen verteilt sind.
-// k = TMDB-Stichwort, c = Filmreihen, m = Einzelfilme ohne Reihe
+// k = TMDB-Stichwort, c = Filmreihen, m = Einzelfilme ohne Reihe; tk / tm = dasselbe für Serien
 const UNIVERSES = [
-  { name: 'Marvel Cinematic Universe', fr: 'MCU', a: ['mcu', 'marvel'], k: [180547] },
-  { name: 'DC Extended Universe', fr: 'DCEU', a: ['dceu', 'dc extended', 'justice league', 'batman', 'superman'], k: [229266] },
-  { name: 'DC Universe (ab 2025)', fr: 'DCU', a: ['dcu', 'dc universe', 'superman'], k: [312528] },
-  { name: 'Star Wars', fr: 'Star Wars', a: ['star wars', 'krieg der sterne'], c: [10], m: [330459, 348350] },
+  { name: 'Marvel Cinematic Universe', fr: 'MCU', tk: [180547],  a: ['mcu', 'marvel'], k: [180547] },
+  { name: 'DC Extended Universe', fr: 'DCEU', tk: [229266],  a: ['dceu', 'dc extended', 'justice league', 'batman', 'superman'], k: [229266] },
+  { name: 'DC Universe (ab 2025)', fr: 'DCU', tk: [312528],  a: ['dcu', 'dc universe', 'superman'], k: [312528] },
+  { name: 'Star Wars', fr: 'Star Wars', tm: [4194, 60554, 79093, 82856, 115036, 92830, 83867, 105971, 114461, 114479, 202879, 203085, 114478],  a: ['star wars', 'krieg der sterne'], c: [10], m: [330459, 348350] },
   { name: 'Wizarding World', fr: 'Wizarding World', a: ['wizarding', 'harry potter', 'phantastische tierwesen', 'fantastic beasts'], c: [1241, 435259] },
   { name: 'Spider-Man (alle Reihen)', fr: 'Spider-Man', a: ['spider', 'spiderman'], c: [556, 125574, 531241, 573436] },
-  { name: 'X-Men inkl. Deadpool und Wolverine', fr: 'X-Men', a: ['x-men', 'xmen', 'x men', 'deadpool', 'wolverine'], c: [748, 448150, 453993] },
-  { name: 'Mittelerde', fr: 'Mittelerde', a: ['mittelerde', 'herr der ringe', 'hobbit', 'lord of the rings', 'middle earth', 'tolkien'], c: [119, 121938], m: [839033] },
+  { name: 'X-Men inkl. Deadpool und Wolverine', fr: 'X-Men', tm: [4574, 138502, 67195, 69629],  a: ['x-men', 'xmen', 'x men', 'deadpool', 'wolverine'], c: [748, 448150, 453993] },
+  { name: 'Mittelerde', fr: 'Mittelerde', tm: [84773],  a: ['mittelerde', 'herr der ringe', 'hobbit', 'lord of the rings', 'middle earth', 'tolkien'], c: [119, 121938], m: [839033] },
   { name: 'Ich – Einfach unverbesserlich und Minions', fr: 'Minions', a: ['ich einfach', 'ich - einfach', 'ich – einfach', 'minions', 'despicable'], c: [86066, 544669] },
   { name: 'Shrek inkl. Der gestiefelte Kater', fr: 'Shrek', a: ['shrek', 'gestiefelte', 'puss in boots'], c: [2150, 94602] },
   { name: 'Rocky und Creed', fr: 'Rocky', a: ['rocky', 'creed'], c: [1575, 553717] },
   { name: 'Conjuring-Universum', fr: 'Conjuring', a: ['conjuring', 'annabelle', 'the nun', 'nun'], c: [313086, 402074, 968052], m: [480414] },
-  { name: 'MonsterVerse', fr: 'MonsterVerse', a: ['monsterverse', 'godzilla', 'kong'], k: [380322] },
-  { name: 'Planet der Affen (alle)', fr: 'Planet der Affen', a: ['planet der affen', 'planet of the apes'], c: [1709, 173710] },
-  { name: 'Star Trek (alle Kinofilme)', fr: 'Star Trek', a: ['star trek'], c: [151, 115570, 115575] },
+  { name: 'MonsterVerse', fr: 'MonsterVerse', tk: [380322],  a: ['monsterverse', 'godzilla', 'kong'], k: [380322] },
+  { name: 'Planet der Affen (alle)', fr: 'Planet der Affen', tm: [19],  a: ['planet der affen', 'planet of the apes'], c: [1709, 173710] },
+  { name: 'Star Trek', fr: 'Star Trek', tm: [253, 655, 580, 1855, 314, 67198, 85949, 85948, 106393, 103516, 223530, 1992],  a: ['star trek'], c: [151, 115570, 115575] },
   { name: 'Die Tribute von Panem inkl. Prequels', fr: 'Panem', a: ['panem', 'tribute von panem', 'hunger games'], c: [131635, 1701563] },
-  { name: 'Alien inkl. Prometheus', fr: 'Alien', a: ['alien', 'prometheus'], c: [8091, 135416], m: [945961] },
+  { name: 'Alien inkl. Prometheus', fr: 'Alien', tm: [157239],  a: ['alien', 'prometheus'], c: [8091, 135416], m: [945961] },
   { name: 'Drachenzähmen leicht gemacht (Animation und Realfilm)', fr: 'Drachenzähmen', a: ['drachenzähmen', 'how to train'], c: [89137, 1458864] }
 ];
 const norm = s => s.toLowerCase().replace(/[–-]/g, '-').trim();
@@ -121,7 +121,7 @@ $('#tabs').onclick = e => {
   tab = b.dataset.tab;
   document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
   $('#q').value = ''; hideResults();
-  $('#q').placeholder = { movie: 'Film oder Filmreihe suchen', tv: 'Serie suchen und hinzufügen', watch: 'In Watch List suchen', rewatch: 'In Rewatchable suchen' }[tab];
+  $('#q').placeholder = { movie: 'Film oder Filmreihe suchen', tv: 'Serie oder Universum suchen', watch: 'In Watch List suchen', rewatch: 'In Rewatchable suchen' }[tab];
   $('#genre').value = '';
   render();
   window.scrollTo(0, 0);
@@ -143,6 +143,12 @@ function visible() {
 /* ---------- Liste ---------- */
 // Eine Franchise-Angabe kann mehrere Reihen enthalten: "MCU, X-Men"
 const frList = i => (i.franchise || '').split(',').map(x => x.trim()).filter(Boolean);
+// Dezente, feste Farbe pro Reihe (gleicher Name = gleiche Farbe)
+const FR_HUES = [175, 35, 205, 95, 50, 150, 190, 120, 70, 220]; // ohne Rot- und Lilatöne (Aurora/Vivica)
+function frColor(name, light = 58) {
+  let h = 0; for (const c of name.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `hsl(${FR_HUES[h % FR_HUES.length]} 28% ${light}%)`;
+}
 const groupName = i => [...frList(i), i.collectionName || ''].filter(Boolean).join(' ');
 
 // Ein Film kann in mehreren Gruppen stehen; der Eintrag dahinter bleibt derselbe.
@@ -209,7 +215,7 @@ function render() {
   });
 
   list.innerHTML = gl.map(g => g.items.length > 1
-    ? `<div class="grp">${esc(g.name)}</div><div class="grpbody">${g.items.map(row).join('')}</div>`
+    ? `<div class="grp" style="color:${frColor(g.name)}">${esc(g.name)}</div><div class="grpbody" style="border-left-color:${frColor(g.name, 32)}">${g.items.map(row).join('')}</div>`
     : row(g.items[0])).join('');
 }
 
@@ -221,12 +227,12 @@ function avg(i) {
 function row(i) {
   const m = i.ratings?.[me], o = i.ratings?.[other()];
   const mixed = tab === 'watch' || tab === 'rewatch';
-  const line1 = [i.producer, i.franchise].filter(Boolean).join(' · ');
+  const line1 = [esc(i.producer || ''), frList(i).map(f => `<span style="color:${frColor(f)}">${esc(f)}</span>`).join(', ')].filter(Boolean).join(' · ');
   return `<button class="row" data-id="${i.id}">
     <div class="rt"><div class="me${m == null ? ' none' : ''}">${m ?? '–'}</div><div class="ot${o == null ? ' none' : ''}">${o ?? '–'}</div></div>
     <div class="body">
       <div class="l1"><span class="t">${esc(i.title)}${mixed ? ` <span class="kind">${i.type === 'tv' ? 'Serie' : 'Film'}</span>` : ''}</span><span class="y">${i.year || ''}</span></div>
-      <div class="meta"><span>${esc(line1) || '&nbsp;'}</span></div>
+      <div class="meta"><span>${line1 || '&nbsp;'}</span></div>
       <div class="meta"><span>${esc((i.genres || []).join(', '))}</span>${inRewatch(i) ? '<span class="rw">↻</span>' : ''}</div>
     </div>
   </button>`;
@@ -297,7 +303,7 @@ async function search(q) {
     ]);
     if (q !== lastQ) return;
     let html = '';
-    const unis = tab === 'movie' ? matchUniverses(q) : [];
+    const unis = matchUniverses(q).filter(u => tab === 'movie' ? (u.k || u.c || u.m) : (u.tk || u.tm));
     unis.forEach(u => {
       html += `<button class="res coll" data-uni="${UNIVERSES.indexOf(u)}"><div class="noimg"></div><div><div>${esc(u.name)}</div><div class="tag">Ganzes Universum hinzufügen</div></div></button>`;
     });
@@ -326,7 +332,7 @@ async function search(q) {
 $('#results').onclick = async e => {
   const b = e.target.closest('.res'); if (!b) return;
   hideResults(); $('#q').value = '';
-  if (b.dataset.uni) { const u = UNIVERSES[Number(b.dataset.uni)]; return openBulk(u.name, () => loadUniverse(u), u.fr); }
+  if (b.dataset.uni) { const u = UNIVERSES[Number(b.dataset.uni)], t = tab; return openBulk(u.name, () => loadUniverse(u, t), u.fr, t); }
   if (b.dataset.coll) return openBulk(null, () => loadCollection(Number(b.dataset.coll)));
   const tmdbId = Number(b.dataset.id), type = tab;
   const existing = findId(type, tmdbId);
@@ -343,30 +349,38 @@ $('#results').onclick = async e => {
 /* ---------- Ganze Filmreihe ---------- */
 async function loadCollection(id) {
   const d = await tmdb(`/collection/${id}`);
-  const parts = (d.parts || []).filter(p => p.release_date && p.release_date <= today())
-    .sort((a, b) => a.release_date.localeCompare(b.release_date));
+  const parts = (d.parts || []).map(part).filter(p => p.date && p.date <= today())
+    .sort((a, b) => a.date.localeCompare(b.date));
   return { name: cleanCollection(d.name), parts };
 }
-async function loadKeyword(kw) {
-  const base = { with_keywords: kw, sort_by: 'primary_release_date.asc', 'with_runtime.gte': 70, without_genres: 99, 'primary_release_date.lte': today() };
-  const first = await tmdb('/discover/movie', { ...base, page: 1 });
+// Einheitliches Format für Filme und Serien: { id, title, date }
+const part = p => ({ id: p.id, title: p.title || p.name, date: p.release_date || p.first_air_date || '' });
+
+async function loadKeyword(kw, type = 'movie') {
+  const base = type === 'movie'
+    ? { with_keywords: kw, sort_by: 'primary_release_date.asc', 'with_runtime.gte': 70, without_genres: 99, 'primary_release_date.lte': today() }
+    : { with_keywords: kw, sort_by: 'first_air_date.asc', without_genres: '99,10763,10767', 'first_air_date.lte': today() };
+  const first = await tmdb('/discover/' + type, { ...base, page: 1 });
   let parts = first.results || [];
-  for (let p = 2; p <= Math.min(first.total_pages || 1, 5); p++) parts = parts.concat((await tmdb('/discover/movie', { ...base, page: p })).results || []);
-  return parts;
+  for (let p = 2; p <= Math.min(first.total_pages || 1, 5); p++) parts = parts.concat((await tmdb('/discover/' + type, { ...base, page: p })).results || []);
+  return parts.map(part);
 }
-async function loadUniverse(u) {
-  const lists = await Promise.all([
-    ...(u.k || []).map(loadKeyword),
+async function loadUniverse(u, type = 'movie') {
+  const lists = await Promise.all(type === 'movie' ? [
+    ...(u.k || []).map(k => loadKeyword(k)),
     ...(u.c || []).map(id => loadCollection(id).then(c => c.parts).catch(() => [])),
-    ...(u.m || []).map(id => tmdb(`/movie/${id}`).then(m => [m]).catch(() => []))
+    ...(u.m || []).map(id => tmdb(`/movie/${id}`).then(m => [part(m)]).catch(() => []))
+  ] : [
+    ...(u.tk || []).map(k => loadKeyword(k, 'tv')),
+    ...(u.tm || []).map(id => tmdb(`/tv/${id}`).then(m => [part(m)]).catch(() => []))
   ]);
   const seen = new Set();
-  const parts = lists.flat().filter(p => p.release_date && p.release_date <= today() && !seen.has(p.id) && seen.add(p.id))
-    .sort((a, b) => a.release_date.localeCompare(b.release_date));
+  const parts = lists.flat().filter(p => p.date && p.date <= today() && !seen.has(p.id) && seen.add(p.id))
+    .sort((a, b) => a.date.localeCompare(b.date));
   return { name: u.name, parts };
 }
 
-async function openBulk(title, loader, franchise = '') {
+async function openBulk(title, loader, franchise = '', type = 'movie') {
   openId = null;
   const sheet = $('#sheet');
   sheet.innerHTML = `<h2>${esc(title || 'Filmreihe')}</h2><div class="sub">Lädt …</div>`;
@@ -374,15 +388,15 @@ async function openBulk(title, loader, franchise = '') {
   let data;
   try { data = await loader(); } catch (e) { sheet.innerHTML = '<div class="sub">Konnte die Filmreihe nicht laden.</div>'; return; }
   const have = haveKey();
-  const missing = data.parts.filter(p => !have.has('movie:' + p.id));
+  const missing = data.parts.filter(p => !have.has(type + ':' + p.id));
   // schon vorhandene Filme, die noch nicht die Franchise tragen
-  const retag = franchise ? data.parts.map(p => findId('movie', p.id))
+  const retag = franchise ? data.parts.map(p => findId(type, p.id))
     .filter(id => id && !frList(items[id]).some(f => f.toLowerCase() === franchise.toLowerCase())) : [];
   const label = missing.length ? `${missing.length} hinzufügen` : retag.length ? `Als ${franchise} zusammenfassen` : '';
   sheet.innerHTML = `
     <h2>${esc(data.name)}</h2>
-    <div class="sub">${data.parts.length} Filme${missing.length < data.parts.length ? ` · ${data.parts.length - missing.length} schon in der Liste` : ''}</div>
-    <div class="blist">${data.parts.map(p => `<div class="bitem${have.has('movie:' + p.id) ? ' have' : ''}"><span>${esc(p.title)}</span><span class="y">${(p.release_date || '').slice(0, 4)}</span></div>`).join('')}</div>
+    <div class="sub">${data.parts.length} ${type === 'tv' ? 'Serien' : 'Filme'}${missing.length < data.parts.length ? ` · ${data.parts.length - missing.length} schon in der Liste` : ''}</div>
+    <div class="blist">${data.parts.map(p => `<div class="bitem${have.has(type + ':' + p.id) ? ' have' : ''}"><span>${esc(p.title)}</span><span class="y">${p.date.slice(0, 4)}</span></div>`).join('')}</div>
     <div class="actions">
       <button class="btn" id="bCancel">Abbrechen</button>
       ${label ? `<button class="btn primary" id="bAdd">${label}</button>` : '<span class="sub">Alle schon drin</span>'}
@@ -394,7 +408,7 @@ async function openBulk(title, loader, franchise = '') {
     for (const id of retag) await db.child(id + '/franchise').set([...frList(items[id]), franchise].join(', '));
     let n = 0;
     for (let i = 0; i < missing.length; i += 6) {
-      const batch = await Promise.all(missing.slice(i, i + 6).map(p => fetchEntry('movie', p.id).catch(() => null)));
+      const batch = await Promise.all(missing.slice(i, i + 6).map(p => fetchEntry(type, p.id).catch(() => null)));
       for (const e of batch) {
         if (!e) continue;
         if (franchise) e.franchise = franchise;
